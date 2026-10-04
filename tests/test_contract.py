@@ -303,9 +303,18 @@ def test_memory_is_capped_reset_and_kept_per_user() -> None:
 
     assert store.recall("ana", "tags") == ["retrieval"]
 
-@pytest.mark.skip(
-    reason="session 14: the regression test for rank 1 of docs/ISSUES.md. Write it red "
-    "against the bug, fix the bug, watch it go green."
-)
 def test_regression_rank_1_of_the_issue_list() -> None:
-    raise NotImplementedError
+    from agent import YourAgent
+
+    class FailingClient:
+        def answer(self, *args, **kwargs):
+            raise RuntimeError("provider unavailable")
+
+    agent = YourAgent()
+    agent.llm = FailingClient()
+
+    result = agent.run("How does chunking work in retrieval-augmented generation?")
+
+    assert result.answer.needs_human_review is True
+    assert result.answer.confidence <= 0.2
+    assert result.answer.citations == ()
