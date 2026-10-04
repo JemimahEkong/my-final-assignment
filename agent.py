@@ -19,7 +19,10 @@ offline `FakeLLM`. Keys live only in `.env`, which git ignores.
 
 from __future__ import annotations
 
+import copy
+import re
 from pathlib import Path
+import concurrent.futures
 
 from bootcamp_agent.agent import AgentResult, answer_question
 from bootcamp_agent.config import load_settings
@@ -32,6 +35,39 @@ from bootcamp_agent.tools import Tool, build_tools
 #: input: nothing you build writes to it.
 CORPUS_DIR = Path(__file__).resolve().parent / "data" / "corpus"
 
+INJECTION_SHAPES = (
+    r"ignore\s+(?:\w+\s+){0,3}instructions",
+    r"disregard\s+(?:the\s+)?(?:above|previous|prior|earlier)",
+    r"(?im)^(?:SYSTEM|assistant|developer):",
+    r"(?i)(?:send|post|email|forward|leak|reveal).{0,40}(?:api key|token|secret|password|\.env)",
+    r"(?i)you must now",
+)
+
+
+def _contains_injection(text: str) -> bool:
+    return any(re.search(pattern, text) for pattern in INJECTION_SHAPES)
+
+class MemoryStore:
+    """Small per-user memory store with isolation and defensive copying."""
+
+    def __init__(self) -> None:
+        self._values: dict[tuple[str, str], object] = {}
+
+    @staticmethod
+    def _owner(user_id: str) -> str:
+        if not isinstance(user_id, str) or not user_id.strip():
+            raise ValueError(
+                "user_id is required; a memory with no owner is everybody's memory"
+            )
+        return user_id
+
+    def remember(self, user_id: str, key: str, value: object) -> None:
+        owner = self._owner(user_id)
+        self._values[(owner, key)] = copy.deepcopy(value)
+
+    def recall(self, user_id: str, key: str) -> object | None:
+        owner = self._owner(user_id)
+        return copy.deepcopy(self._values.get((owner, key)))
 
 class YourAgent:
     """The agent the tests and the grader run. Make it yours."""
@@ -52,13 +88,61 @@ class YourAgent:
 
     def run(self, question: str) -> AgentResult:
         """One question, answered or refused, with the trace of how."""
-        return answer_question(
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            answer_question,
             question,
             self.documents,
             self.client,
-            max_tool_calls=3,
-            top_k=3,
+            3,
+            3,
         )
+
+        try:
+            result = future.result(timeout=self.timeout_s)
+
+            if any(_contains_injection(document.text) for document in self.documents):
+                result = AgentResult(
+                    answer=ResearchAnswer(
+                        answer=result.answer.answer,
+                        citations=result.answer.citations,
+                        confidence=min(result.answer.confidence, 0.2),
+                        needs_human_review=True,
+                    ),
+                    trace=result.trace,
+                )
+
+            return result
+
+        except concurrent.futures.TimeoutError:
+            executor.shutdown(wait=False, cancel_futures=True)
+            return AgentResult(
+                answer=ResearchAnswer(
+                    answer="I don't know based on the provided corpus.",
+                    citations=(),
+                    confidence=0.0,
+                    needs_human_review=True,
+                ),
+                trace=(),
+            )
+
+        except Exception:
+            executor.shutdown(wait=False, cancel_futures=True)
+            return AgentResult(
+                answer=ResearchAnswer(
+                    answer="I don't know based on the provided corpus.",
+                    citations=(),
+                    confidence=0.0,
+                    needs_human_review=True,
+                ),
+                trace=(),
+            )
+
+        finally:
+            if not future.done():
+                executor.shutdown(wait=False, cancel_futures=True)
+            else:
+                executor.shutdown(wait=True)
 
     def __call__(self, question: str) -> ResearchAnswer:
         return self.run(question).answer
