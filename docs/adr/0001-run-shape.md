@@ -1,33 +1,27 @@
 # ADR 0001: the shape of one run
 
-**Filled by:** session 10, for the choice you measured in session 8 (chain,
-loop or graph, and the model calls each one cost). The four fields are the
-ones `ch10-e2` reads.
+**Filled by:** session 10.
 
-- Status: <!-- write this: proposed | accepted | superseded by ADR NNNN -->
-- Date: <!-- write this -->
+- Status: accepted
+- Date: 2026-10-04
 
 ## Context
 
-<!-- write this: what forced a choice, and the model-call count you measured
-for each shape in session 8. -->
+The research assistant needed a simple run shape that was easy to reason about, test, trace, and keep within the model-call budget. A chain was preferred over a more complex loop or graph because the workflow has a clear retrieval-then-answer path.
 
 ## Decision (`decision`)
 
-<!-- write this: one sentence phrased as a choice ("we keep the chain in
-agent.py"), not as a description of the code. -->
+We keep the simple chain in `agent.py`.
 
 ## Options considered (`options_considered`)
 
-1. <!-- write this: the option you took -->
-2. <!-- write this: the option you turned down -->
+1. A simple retrieval-to-answer chain.
+2. A loop or graph with additional model-driven steps.
 
 ## Why not the other option (`why_not`)
 
-<!-- write this: the reason it lost, today. The reason, not the verdict. -->
+The loop or graph adds complexity and additional model calls without being necessary for the current research workflow.
 
 ## What would reverse it (`reverses_it`)
 
-<!-- write this: a measurement with a number and a unit, e.g. "when a question
-needs more than 2 model calls in 10 of the golden cases". "When it gets slow" is
-an opinion, not a trigger. -->
+We would reconsider the decision if the golden evaluation cases regularly required more than 2 model calls to answer correctly.

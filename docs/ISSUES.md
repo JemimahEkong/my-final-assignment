@@ -1,21 +1,15 @@
 # Ranked issues
 
-**Filled by:** session 9 (the first list, `cap01-e5`), kept current until
-session 14, which fixes rank 1 and adds its regression test.
-
-At least three rows. Ranks 1, 2, 3... with no gap and no tie: two issues ranked
-1 is a list nobody prioritised. The impact is what orders it.
-
-The columns are the three fields `cap01-e5` reads.
+**Filled by:** session 9, kept current through session 14.
 
 | rank | issue | impact |
 |---:|---|---|
-| 1 | <!-- write this: a sentence naming the issue --> | <!-- write this: who it hurts and how badly --> |
-| 2 | <!-- write this --> | <!-- write this --> |
-| 3 | <!-- write this --> | <!-- write this --> |
+| 1 | Lexical retrieval misses paraphrases with no word overlap | A user who asks in their own words can get a refusal for a question the corpus actually supports. |
+| 2 | The evaluator checks which doc was cited, not whether the answer is faithful | A citation can look correct while the answer is still unsupported by the cited evidence. |
+| 3 | Nothing bounds a provider that hangs rather than failing | A provider that never responds can stall the research flow instead of producing a safe result. |
 
-## Rank 1, in progress
+## Rank 1, fixed
 
-- The fix: <!-- write this (session 14) -->
-- The regression test: <!-- write this: its name in tests/ -->
+- The fix: improve retrieval so supported paraphrased questions can match relevant corpus content.
+- The regression test: `test_regression_rank_1_of_the_issue_list` in `tests/test_contract.py`.
 - Before and after: see [EVAL_REPORT.md](EVAL_REPORT.md).
